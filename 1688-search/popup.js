@@ -5,6 +5,7 @@
 // Search the bookmarks when entering the search keyword.
 let color = 0;
 KEYWORDS_1688 = 'KEYWORDS_1688';
+DETAILS_1688 = 'DETAILS_1688';
 $(function () {
   $('#btnAddTasks').click(e => {
     let words = document.getElementById("textTasksToAdd").value;
@@ -28,6 +29,9 @@ $(function () {
 
   $("#btnCleanStorage").click(e => {
     chrome.storage.sync.set({ KEYWORDS_1688: [] }, function () {
+      loadData();
+    });
+    chrome.storage.sync.set({ DETAILS_1688: [] }, function () {
       loadData();
     });
   });
@@ -61,16 +65,19 @@ function loadSinkServiceUrl() {
 
 function triggerSpider() {
   console.log("开始爬取数据...");
-  chrome.storage.sync.get([KEYWORDS_1688], function (items) {
-    console.log(items);
-    items = items[KEYWORDS_1688];
-    if (Array.isArray(items) && items.length > 0) {
-      let keyword = items.pop();
-      buildUrl(keyword);
-    } else {
-      alert("当前任务列表为空，您可以添加关键词任务才能爬取数据");
-    }
-  });
+  // 详情页和搜索页爬取是一个循环队列：
+  // 先爬完detail、再爬去一个搜索词，再爬上一个搜索词添加的detail，如此往复；
+  window.location.href = 'https://detail.1688.com/offer/623616959632.html';
+  // chrome.storage.sync.get([KEYWORDS_1688], function (items) {
+  //   console.log(items);
+  //   items = items[KEYWORDS_1688];
+  //   if (Array.isArray(items) && items.length > 0) {
+  //     let keyword = items.pop();
+  //     buildUrl(keyword);
+  //   } else {
+  //     alert("当前任务列表为空，您可以添加关键词任务才能爬取数据");
+  //   }
+  // });
 }
 
 function buildUrl(keyword) {

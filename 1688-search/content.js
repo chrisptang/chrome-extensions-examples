@@ -2,11 +2,16 @@ console.log("running in content script");
 
 KEYWORDS_1688 = 'KEYWORDS_1688';
 
-app = document.getElementById("app");
+DETAILS_1688 = 'DETAILS_1688';
+
+app = document.getElementById("app") || document.getElementById('root-container') || document.getElementById('content') || document.body;
 
 let search = location.search.substring(1);
 let result = {};
-result.page = JSON.parse('{"' + search.replace(/"/g, '\\"').replace(/&/g, '","').replace(/=/g, '":"') + '"}');
+result.page = {}
+if (!!search && search.length > 1) {
+    result.page = JSON.parse('{"' + search.replace(/"/g, '\\"').replace(/&/g, '","').replace(/=/g, '":"') + '"}');
+}
 result.page.url = document.location.toString();
 
 let keywordList = [];
@@ -23,12 +28,12 @@ chrome.storage.sync.get(KEYWORDS_1688, function (items) {
     }
 });
 
+// 爬取搜索结果页
 if (location.href.indexOf('selloffer/offer_search.htm') >= 0) {
     isRunning = true;
     notice = document.createElement("div");
     notice.id = "__1688searchSpider__";
     notice.appendChild(document.createTextNode("1688大力士 正在为你爬取关键词：" + JSON.stringify(result.page)));
-
     app.insertBefore(notice, app.firstElementChild);
     makeSureScrollToBottom();
 
@@ -37,20 +42,76 @@ if (location.href.indexOf('selloffer/offer_search.htm') >= 0) {
             setTimeout(() => {
                 let products = $('.space-offer-card-box');
                 if (products.length > 0) {
+                    let details = []
                     for (let productDiv in products) {
                         let json = parseProductBlockAsJson(typeof productDiv == 'object' ? productDiv : products[productDiv]);
                         if (null == json) {
                             continue;
                         }
                         json.page = result.page;
+                        if (json.href.indexOf("dj.1688.com") < 0) {
+                            // 如果不是广告，则加入；
+                            details.push(json.href);
+                        }
                         sendResult(json);
                     }
+
+                    updateDetailList(details, () => {
+                        // 直接跳到第一个商品；
+                        window.location.href = details.pop();
+                    });
                 }
             }, 3000);
         }
     }
     console.log("1688大力士 正在为你爬取关键词：" + JSON.stringify(result.page));
 }
+
+function updateDetailList(arr, callback) {
+    chrome.storage.sync.set({ DETAILS_1688: arr }, function () {
+        console.log("updated DetailList:" + JSON.stringify(arr));
+        if (callback) {
+            callback.call(this);
+        }
+    });
+}
+
+// 爬取detail页
+if (location.href.indexOf('detail.1688.com/offer') >= 0) {
+    isRunning = true;
+    notice = document.createElement("div");
+    notice.id = "__1688searchSpider__";
+    notice.appendChild(document.createTextNode("1688大力士 正在为你爬取商品：" + JSON.stringify(result.page)));
+    app.insertBefore(notice, app.firstElementChild);
+    makeSureScrollToBottom();
+
+    window.__counter = 0;
+
+    window.__counter_interval = setInterval(() => {
+        window.__counter += 1;
+        try {
+            window.__INIT_DATA = JSON.parse(document.body.innerHTML.split("window.__INIT_DATA=")[1].split('</script>')[0]);
+        } catch (err) {
+            console.error(err);
+        }
+        if (window.__INIT_DATA) {
+            console.log('window.__INIT_DATA', window.__INIT_DATA, "window.__counter:", window.__counter);
+
+            let json = window.__INIT_DATA;
+            json.globalData.offerDomain = JSON.parse(json.globalData.offerDomain);
+            sendResult(json, goToNextDetail);
+
+            clearInterval(window.__counter_interval);
+        }
+        if (window.__counter > 20) {
+            clearInterval(window.__counter_interval);
+            goToNextDetail();
+        }
+    }, 500);
+
+    console.log("1688大力士 正在为你爬取detail：" + JSON.stringify(result.page));
+}
+
 
 function parseProductBlockAsJson(productDiv) {
     let json = {};
@@ -69,11 +130,45 @@ function parseProductBlockAsJson(productDiv) {
     return json;
 }
 
-function goToNextKeyword(keywordList) {
-    let keyword = keywordList.pop();
-    chrome.storage.sync.set({ KEYWORDS_1688: keywordList }, function () {
-        console.log("updated keyword-list:" + JSON.stringify(keywordList));
-        goToKeyword(keyword);
+function goToNextDetail() {
+    let detailsList = [];
+    chrome.storage.sync.get(DETAILS_1688, function (items) {
+        detailsList = items[DETAILS_1688];
+        if (Array.isArray(detailsList) && detailsList.length > 0) {
+            console.log("剩余商品页面任务：", detailsList);
+
+            let nextDetail = detailsList.pop();
+            updateDetailList(detailsList, function () {
+                window.location.href = nextDetail;
+            });
+        } else {
+            // 如果当前的detail任务已经完毕，则进行下一个词的搜索
+            goToNextKeyword();
+        }
+    });
+}
+
+function goToNextKeyword() {
+    let keywords = [];
+    chrome.storage.sync.get(KEYWORDS_1688, function (items) {
+        keywords = items[KEYWORDS_1688];
+        if (Array.isArray(keywords) && keywords.length > 0) {
+            console.log("剩余关键词任务：", keywords);
+
+            let nextKeyword = keywords.pop();
+            updateKeywordList(keywords, function () {
+                goToKeyword(nextKeyword, 1);
+            });
+        }
+    });
+}
+
+function updateKeywordList(arr, callback) {
+    chrome.storage.sync.set({ KEYWORDS_1688: arr }, function () {
+        console.log("updated KeywordList:" + JSON.stringify(arr));
+        if (callback) {
+            callback.call(this);
+        }
     });
 }
 
@@ -125,7 +220,7 @@ function sendResult(json, callback) {
     request.setRequestHeader("Content-Type", "application/json");
     request.send(JSON.stringify(json));
     if (callback) {
-        request.onload = callback;
+        setTimeout(callback, 2000);
     }
 }
 
