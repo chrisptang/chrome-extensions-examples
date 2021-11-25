@@ -30,6 +30,7 @@ if (location.href.indexOf('selloffer/offer_search.htm') >= 0) {
     notice.appendChild(document.createTextNode("1688大力士 正在为你爬取关键词：" + JSON.stringify(result.page)));
 
     app.insertBefore(notice, app.firstElementChild);
+    makeSureScrollToBottom();
 
     document.onreadystatechange = function () {
         if (document.readyState === 'complete') {
@@ -37,7 +38,6 @@ if (location.href.indexOf('selloffer/offer_search.htm') >= 0) {
                 let products = $('.space-offer-card-box');
                 if (products.length > 0) {
                     for (let productDiv in products) {
-                        makeSureScrollToBottom();
                         let json = parseProductBlockAsJson(typeof productDiv == 'object' ? productDiv : products[productDiv]);
                         if (null == json) {
                             continue;
@@ -54,7 +54,7 @@ if (location.href.indexOf('selloffer/offer_search.htm') >= 0) {
 
 function parseProductBlockAsJson(productDiv) {
     let json = {};
-    if (typeof productDiv != 'object') {
+    if (typeof productDiv != 'object' || !productDiv.getElementsByClassName) {
         console.log('this is not a div:', productDiv);
         return null;
     }
