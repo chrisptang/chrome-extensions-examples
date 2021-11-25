@@ -1,0 +1,71 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script> -->
+  <script src="popup.js"></script>
+  <script src="jquery.min.js"></script>
+  <style>
+    .leqee-spy-btn {
+      margin-right: 5px;
+      padding: 5px 15px;
+      font-weight: bold;
+      color: darkblue;
+      background-color: lightblue;
+      border: 1px solid mediumaquamarine;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+
+    .leqee-spy-btn:hover {
+      background-color: blue;
+      color: lightblue;
+    }
+
+    .leqee-spy-btn:active {
+      background-color: darkblue;
+      font-size: 1.1em;
+    }
+
+    #keywordTaskList {
+      max-height: 400px;
+      overflow: auto;
+    }
+
+    #textTasksToAdd {
+      width: 300px;
+      max-width: 300px;
+      min-width: 300px;
+      height: 300px;
+      min-height: 200px;
+      max-height: 500px;
+    }
+  </style>
+</head>
+
+<body style="width: 500px">
+  <div style="display: flex;flex-direction:row;">
+    <div style="width: 300px;">
+      <textarea id="textTasksToAdd" placeholder="在此输入核心关键词，如：唇膏，每行一词。单次最多可添加25个词"></textarea>
+    </div>
+    <div style="width: 200px;padding-left: 10px;">
+      <p style="color: darkcyan;font-weight: bold;">当前任务列表：</p>
+      <div id="keywordTaskList">
+      </div>
+    </div>
+  </div>
+  <div style="margin-top: 10px;margin-bottom: 15px;">
+    <button id="btnAddTasks" class="leqee-spy-btn">添加到任务列表</button>
+    <button id="btnStorage" class="leqee-spy-btn">查看任务列表</button>
+    <button id="btnCleanStorage" class="leqee-spy-btn">清空任务列表</button>
+    <button id="btnStartTasks" class="leqee-spy-btn">开始爬取</button>
+  </div>
+  <div style="padding-top: 20px;border-top: solid 1px #ddd;">
+    <p>后端存数地址：</p>
+    <input id="textSinkServiceUrl" value="http://localhost:1688/api/1688search/sink"
+      style="width: 330px;padding: 5px;" />
+    <button id="btnUpdateSinkServiceUrl" class="leqee-spy-btn">更新地址</button>
+  </div>
+</body>
+
+</html>
