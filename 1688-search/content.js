@@ -103,7 +103,7 @@ if (location.href.indexOf('detail.1688.com/offer') >= 0) {
 
             clearInterval(window.__counter_interval);
         }
-        if (window.__counter > 20) {
+        if (window.__counter > 2) {
             clearInterval(window.__counter_interval);
             goToNextDetail();
         }
@@ -139,7 +139,9 @@ function goToNextDetail() {
 
             let nextDetail = detailsList.pop();
             updateDetailList(detailsList, function () {
-                window.location.href = nextDetail;
+                setTimeout(() => {
+                    window.location.href = nextDetail;
+                }, 20000);
             });
         } else {
             // 如果当前的detail任务已经完毕，则进行下一个词的搜索
@@ -157,7 +159,7 @@ function goToNextKeyword() {
 
             let nextKeyword = keywords.pop();
             updateKeywordList(keywords, function () {
-                goToKeyword(nextKeyword, 1);
+                setTimeout(() => { goToKeyword(nextKeyword, 1); }, 15000)
             });
         }
     });

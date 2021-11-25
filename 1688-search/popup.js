@@ -67,7 +67,7 @@ function triggerSpider() {
   console.log("开始爬取数据...");
   // 详情页和搜索页爬取是一个循环队列：
   // 先爬完detail、再爬去一个搜索词，再爬上一个搜索词添加的detail，如此往复；
-  window.location.href = 'https://detail.1688.com/offer/623616959632.html';
+  window.open('https://detail.1688.com/offer/623616959632.html');
   // chrome.storage.sync.get([KEYWORDS_1688], function (items) {
   //   console.log(items);
   //   items = items[KEYWORDS_1688];
