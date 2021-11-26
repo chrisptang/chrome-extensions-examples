@@ -85,31 +85,68 @@ if (location.href.indexOf('detail.1688.com/offer') >= 0) {
     app.insertBefore(notice, app.firstElementChild);
     makeSureScrollToBottom();
 
-    window.__counter = 0;
-
-    window.__counter_interval = setInterval(() => {
-        window.__counter += 1;
-        try {
-            window.__INIT_DATA = JSON.parse(document.body.innerHTML.split("window.__INIT_DATA=")[1].split('</script>')[0]);
-        } catch (err) {
-            console.error(err);
-        }
-        if (window.__INIT_DATA) {
-            console.log('window.__INIT_DATA', window.__INIT_DATA, "window.__counter:", window.__counter);
-
-            let json = window.__INIT_DATA;
-            json.globalData.offerDomain = JSON.parse(json.globalData.offerDomain);
+    try {
+        window.__INIT_DATA = JSON.parse(document.body.innerHTML.split("window.__INIT_DATA=")[1].split('</script>')[0]);
+    } catch (err) {
+        console.warn(err);
+        if (document.body.innerHTML.indexOf("厂货通") > 0 && $('.cht-pc-header') && $('.cht-pc-footer')) {
+            let json = parseChtDetailPage();
             sendResult(json, goToNextDetail);
-
-            clearInterval(window.__counter_interval);
         }
-        if (window.__counter > 2) {
-            clearInterval(window.__counter_interval);
-            goToNextDetail();
-        }
-    }, 500);
+    }
+    if (window.__INIT_DATA) {
+        console.log('window.__INIT_DATA', window.__INIT_DATA, "window.__counter:", window.__counter);
 
+        let json = window.__INIT_DATA;
+        json.globalData.offerDomain = JSON.parse(json.globalData.offerDomain);
+        sendResult(json, goToNextDetail);
+
+    }
     console.log("1688大力士 正在为你爬取detail：" + JSON.stringify(result.page));
+}
+
+// 厂货通和普通的detail page不一样，没有window.__INIT_DATA；
+// 因此需要特殊处理
+function parseChtDetailPage() {
+    // 页面的meta
+    let json = {}, meta = {}
+    for (let idx = 0; idx < metalist.length; idx++) {
+        let key = metalist[idx].getAttribute("name") || metalist[idx].getAttribute('property');
+        if (key) {
+            meta[key] = metalist[idx].getAttribute("content");
+        }
+    }
+    json.meta = meta;
+    json.innerText = document.getElementById("mod-detail-bd").innerText;
+
+    //轮播图；
+    let gallery = $('.mod-detail-version2018-gallery')[0].dataset, galleryJson = {};
+    galleryJson.galleryImageList = gallery.galleryImageList.trim().split(",");
+    galleryJson.modConfig = JSON.parse(gallery.modConfig);
+    json.gallery = galleryJson;
+
+    // SKU list
+    let skuList = [], skuTableTrList = $("table.table-sku tr");
+    for (let idx = 0; idx < skuTableTrList.length; idx++) {
+        let sku = JSON.parse(skuTableTrList[idx].dataset.skuConfig);
+        sku.price=$(skuTableTrList[idx]).find("td.price")[0].innerText
+        skuList.push(sku);
+    }
+    json.skuList = skuList;
+
+    // feature list
+    json.featureList = JSON.parse($('#mod-detail-attributes')[0].dataset.featureJson);
+
+    // detail image list;
+    let descriptionImgList = $('#mod-detail-description img').toArray(), imgList = [];
+    for (let idx in descriptionImgList) {
+        if (descriptionImgList[idx].src) {
+            imgList.push(descriptionImgList[idx].src);
+        }
+    }
+    json.descriptionImgList = imgList;
+
+    return json;
 }
 
 
