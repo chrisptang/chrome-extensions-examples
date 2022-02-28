@@ -6,16 +6,12 @@ DETAILS_1688 = 'DETAILS_1688';
 
 app = document.getElementById("app") || document.getElementById('root-container') || document.getElementById('content') || document.body;
 
-let search = location.search.substring(1);
-let result = {};
-result.page = {}
-if (!!search && search.length > 1) {
-    result.page = JSON.parse('{"' + search.replace(/"/g, '\\"').replace(/&/g, '","').replace(/=/g, '":"') + '"}');
-}
+let params = Object.fromEntries(new URLSearchParams(window.location.search).entries());
+let page = { params }, result = { page };
 result.page.url = document.location.toString();
 
 let keywordList = [];
-let isRunning = false;
+let isRunning = ('1' == result.page.params.running);
 chrome.storage.sync.get(KEYWORDS_1688, function (items) {
     keywordList = items[KEYWORDS_1688];
     if (Array.isArray(keywordList) && keywordList.length > 0) {
@@ -29,13 +25,23 @@ chrome.storage.sync.get(KEYWORDS_1688, function (items) {
 });
 
 // 爬取搜索结果页
-if (location.href.indexOf('selloffer/offer_search.htm') >= 0) {
-    isRunning = true;
+if (isRunning && location.href.indexOf('selloffer/offer_search.htm') >= 0) {
     notice = document.createElement("div");
     notice.id = "__1688searchSpider__";
     notice.appendChild(document.createTextNode("1688大力士 正在为你爬取关键词：" + JSON.stringify(result.page)));
     app.insertBefore(notice, app.firstElementChild);
     makeSureScrollToBottom();
+
+    let newKeywordParams = { ...params };
+    if (newKeywordParams.beginPage < 4) {
+        // 最多爬取前4页
+        newKeywordParams.beginPage += 1;
+        newKeywordParams.running = 1;
+
+        let queryString = Object.keys(params).map(key => key + '=' + params[key]).join('&');
+        let newUrl = window.location.href.split('?')[0] + '?' + queryString;
+        addNewKeyword(newUrl);
+    }
 
     document.onreadystatechange = function () {
         if (document.readyState === 'complete') {
@@ -68,10 +74,23 @@ if (location.href.indexOf('selloffer/offer_search.htm') >= 0) {
 }
 
 function updateDetailList(arr, callback) {
-    chrome.storage.sync.set({ DETAILS_1688: arr }, function () {
-        console.log("updated DetailList:" + JSON.stringify(arr));
+    let detailsList = [], allList = [...arr];
+    chrome.storage.sync.get(DETAILS_1688, function (items) {
+        detailsList = items[DETAILS_1688];
+        if (Array.isArray(detailsList) && detailsList.length > 0) {
+            allList.push(...detailsList);
+        }
+        let newList = [...(new Set([...allList]))];
+        replaceDetailList(newList, callback);
+    });
+}
+
+function replaceDetailList(arr, callback) {
+    let newList = [...(new Set([...arr]))], _this = this;
+    chrome.storage.sync.set({ DETAILS_1688: newList }, function () {
+        console.log("updated DetailList:" + JSON.stringify(newList));
         if (callback) {
-            callback.call(this);
+            callback.call(_this);
         }
     });
 }
@@ -89,9 +108,12 @@ if (location.href.indexOf('detail.1688.com/offer') >= 0) {
         window.__INIT_DATA = JSON.parse(document.body.innerHTML.split("window.__INIT_DATA=")[1].split('</script>')[0]);
     } catch (err) {
         console.warn(err);
-        if (document.body.innerHTML.indexOf("厂货通") > 0 && $('.cht-pc-header') && $('.cht-pc-footer')) {
+        if (document.body.innerHTML.indexOf("厂货通") > 0 && $('.cht-pc-header').length > 0) {
             let json = parseChtDetailPage();
             sendResult(json, goToNextDetail);
+        } else {
+            console.warn("\n\n\n###这是一个老旧的detail页面");
+            goToNextDetail();
         }
     }
     if (window.__INIT_DATA) {
@@ -100,7 +122,6 @@ if (location.href.indexOf('detail.1688.com/offer') >= 0) {
         let json = window.__INIT_DATA;
         json.globalData.offerDomain = JSON.parse(json.globalData.offerDomain);
         sendResult(json, goToNextDetail);
-
     }
     console.log("1688大力士 正在为你爬取detail：" + JSON.stringify(result.page));
 }
@@ -109,7 +130,7 @@ if (location.href.indexOf('detail.1688.com/offer') >= 0) {
 // 因此需要特殊处理
 function parseChtDetailPage() {
     // 页面的meta
-    let json = {}, meta = {}
+    let json = {}, meta = {}, metalist = $("meta");
     for (let idx = 0; idx < metalist.length; idx++) {
         let key = metalist[idx].getAttribute("name") || metalist[idx].getAttribute('property');
         if (key) {
@@ -129,7 +150,7 @@ function parseChtDetailPage() {
     let skuList = [], skuTableTrList = $("table.table-sku tr");
     for (let idx = 0; idx < skuTableTrList.length; idx++) {
         let sku = JSON.parse(skuTableTrList[idx].dataset.skuConfig);
-        sku.price=$(skuTableTrList[idx]).find("td.price")[0].innerText
+        sku.price = $(skuTableTrList[idx]).find("td.price")[0].innerText
         skuList.push(sku);
     }
     json.skuList = skuList;
@@ -175,7 +196,7 @@ function goToNextDetail() {
             console.log("剩余商品页面任务：", detailsList);
 
             let nextDetail = detailsList.pop();
-            updateDetailList(detailsList, function () {
+            replaceDetailList(detailsList, function () {
                 setTimeout(() => {
                     window.location.href = nextDetail;
                 }, 20000);
@@ -192,11 +213,23 @@ function goToNextKeyword() {
     chrome.storage.sync.get(KEYWORDS_1688, function (items) {
         keywords = items[KEYWORDS_1688];
         if (Array.isArray(keywords) && keywords.length > 0) {
-            console.log("剩余关键词任务：", keywords);
-
             let nextKeyword = keywords.pop();
+            console.log("剩余关键词任务：", keywords);
             updateKeywordList(keywords, function () {
                 setTimeout(() => { goToKeyword(nextKeyword, 1); }, 15000)
+            });
+        }
+    });
+}
+
+function addNewKeyword(newKeyword) {
+    let keywords = [];
+    chrome.storage.sync.get(KEYWORDS_1688, function (items) {
+        keywords = items[KEYWORDS_1688] || [];
+        if (Array.isArray(keywords) && keywords.length > 0) {
+            keywords.push(newKeyword);
+            updateKeywordList(keywords, function () {
+                console.log("新增了一个关键词任务：", keywords);
             });
         }
     });
@@ -217,6 +250,12 @@ function makeSureScrollToBottom() {
 
 function goToKeyword(keyword, beginPage) {
     if (!keyword) {
+        return;
+    }
+
+    // 也有可能直接是一个link
+    if (keyword.indexOf("s.1688.com/selloffer/offer_search") > 0) {
+        window.location.href = keyword;
         return;
     }
 
@@ -243,6 +282,12 @@ function goToKeyword(keyword, beginPage) {
     input_spm.name = 'spm';
     input_spm.value = "a26352.13672862.searchbox.input";
     form.appendChild(input_spm);
+
+    let input_running = document.createElement('input');
+    input_running.type = 'hidden';
+    input_running.name = 'running';
+    input_running.value = "1";
+    form.appendChild(input_running);
 
     form.target = '_top';
     document.body.appendChild(form);

@@ -20,8 +20,8 @@
         "https://detail.1688.com/offer/*"
       ],
       "js": [
-        "content.js",
-        "jquery.min.js"
+        "jquery.min.js",
+        "content.js"
       ],
       "css": [
         "content.css"
